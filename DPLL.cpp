@@ -264,11 +264,19 @@ public:
 int main(int argc, char const *argv[])
 {
     CNF formula;
-    string filename = "./example/cnf_example1.txt";
+    
+    string filename;
+    cin>>filename;
     formula.readCNFFile(filename);
     formula.printCNF();
     int result = formula.DPLL();
     //int first = formula.uintPropagate();
     cout<<"result: "<<result<<endl;
+    if(result==Status::satisfied){
+        for(int i=1;i<=formula.n;i++){
+            cout<<i<<" "<<formula.assignment[i]<<endl;
+        }
+    }
+        
     return 0;
 }
