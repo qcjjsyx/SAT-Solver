@@ -5,6 +5,9 @@
 #include <list>
 #include <set>
 #include <algorithm>
+#include <fstream>
+#include <sstream>
+
 using namespace  std;
 
 
@@ -127,7 +130,49 @@ public:
         }
     }
 
+    //读取CNF文件并生成CNF对象
+    bool readCNFFile(const string& filename){
+        n=0;
+        assignment.clear();
+        clauses.clear();
+        ifstream file(filename);
+        if(!file.is_open()){
+            cout<<"open file failed"<<endl;
+            return false;
+        }
+        string line;
+        int clauseNum;
+        int varNum;
 
+        while(getline(file,line)){
+            if(line.substr(0,5)=="p cnf"){
+                stringstream ss(line);
+                string temp;
+                ss>>temp>>temp>>varNum>>clauseNum;
+                n=varNum;
+                assignment.resize(n+1,-1);
+                cout << "Found CNF with " << varNum << " variables and " << clauseNum << " clauses." << endl;
+            }else if(!line.empty()){
+                Clause clause;
+                stringstream ss(line);
+                int literal;
+                while(ss>>literal){
+                    if(literal==0) break;
+                    if(literal>0){
+                        clause.addLiteral(Literal(literal,true));
+                    }else{
+                        clause.addLiteral(Literal(-literal,false));
+                    }
+                }
+                addClause(clause);
+            }
+        }
+        file.close();
+        return true;
+    }
+
+
+    //打印CNF
     void printCNF(){
         cout<<"CNF:"<<endl;
         for(auto& clause:clauses){
@@ -137,7 +182,7 @@ public:
     }
 
 
-    //单子句传播
+    //单子句传播and孤立句子删除
     int uintPropagate(){
         set<int> unitClauses;
         for(auto it = clauses.begin();it!=clauses.end();++it){
@@ -191,9 +236,10 @@ public:
 int main(int argc, char const *argv[])
 {
     CNF formula;
-    formula.initCNF();
+    string filename = "./cnf.txt";
+    formula.readCNFFile(filename);
     formula.printCNF();
-    int first = formula.uintPropagate();
-    formula.printCNF();
+    //int first = formula.uintPropagate();
+
     return 0;
 }
