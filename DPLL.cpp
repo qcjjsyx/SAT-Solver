@@ -234,25 +234,27 @@ public:
             changed = uintPropagate();
 
         }while(changed==1);
-        
+        if(changed==-1) return Status::unsatisfied;
         if(clauses.empty()) return Status::satisfied;
+
+
         //选择一个变元
-        // int var = -1;
-        // for(int i=1;i<=n;i++){
-        //     if(assignment[i]==-1){
-        //         var = i;
-        //         break;
-        //     }
-        // }
-        // if(var==-1) return Status::satisfied;
-        // //分支
-        // assign(var,true);
-        // if(DPLL()==Status::satisfied) return Status::satisfied;
-        // unassign(var);
-        // assign(var,false);
-        // if(DPLL()==Status::satisfied) return Status::satisfied;
-        // unassign(var);
-        // return Status::unsatisfied;
+        int var = -1;
+        for(int i=1;i<=n;i++){
+            if(assignment[i]==-1){
+                var = i;
+                break;
+            }
+        }
+        if(var==-1) return Status::satisfied;
+        //分支
+        assign(var,true);
+        if(DPLL()==Status::satisfied) return Status::satisfied;
+        unassign(var);
+        assign(var,false);
+        if(DPLL()==Status::satisfied) return Status::satisfied;
+        unassign(var);
+        return Status::unsatisfied;
     }
 
 };
@@ -262,10 +264,11 @@ public:
 int main(int argc, char const *argv[])
 {
     CNF formula;
-    string filename = "./cnf.txt";
+    string filename = "./example/cnf_example1.txt";
     formula.readCNFFile(filename);
     formula.printCNF();
+    int result = formula.DPLL();
     //int first = formula.uintPropagate();
-
+    cout<<"result: "<<result<<endl;
     return 0;
 }
