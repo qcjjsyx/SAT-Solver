@@ -19,7 +19,6 @@ typedef unsigned long long ull;
 enum Status{
     satisfied,
     unsatisfied,
-    undetermined
 };
 
 
@@ -184,6 +183,7 @@ public:
 
     //单子句传播and孤立句子删除
     int uintPropagate(){
+        int changed = 0;
         set<int> unitClauses;
         for(auto it = clauses.begin();it!=clauses.end();++it){
             Clause clause  = *it;
@@ -192,12 +192,13 @@ public:
                 if(assignment[literal.value]==-1){
                     assign(literal.value,literal.isTrue);
                     unitClauses.insert(literal.value);
+                    changed = 1;
                 }else{// 有类似 a 和 -a的单子句直接给出冲突
                     int pre_assign = assignment[literal.value];
                     int now_assign = literal.isTrue?1:0;
                     if(pre_assign!=now_assign){
                         cout<<"conflict"<<endl;
-                        return Status::unsatisfied;
+                        return -1;
                     }
                 }   
             }
@@ -224,10 +225,35 @@ public:
             }
         }
        
-        return Status::undetermined;
+        return changed;
     }
 
+    int DPLL(){
+        int changed = 0;
+        do{
+            changed = uintPropagate();
 
+        }while(changed==1);
+        
+        if(clauses.empty()) return Status::satisfied;
+        //选择一个变元
+        // int var = -1;
+        // for(int i=1;i<=n;i++){
+        //     if(assignment[i]==-1){
+        //         var = i;
+        //         break;
+        //     }
+        // }
+        // if(var==-1) return Status::satisfied;
+        // //分支
+        // assign(var,true);
+        // if(DPLL()==Status::satisfied) return Status::satisfied;
+        // unassign(var);
+        // assign(var,false);
+        // if(DPLL()==Status::satisfied) return Status::satisfied;
+        // unassign(var);
+        // return Status::unsatisfied;
+    }
 
 };
 
