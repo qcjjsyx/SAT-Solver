@@ -1,8 +1,9 @@
 from CNF import CNF
 from Slover import Solver
 
-cnf = CNF([[1, -2], [-1, 3], [2, -3]])
-
+filename = "cnf.txt"
+cnf = CNF.readCNFFile(filename)
+print(str(cnf))
 
 solver = Solver(cnf)
 

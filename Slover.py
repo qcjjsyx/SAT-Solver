@@ -19,7 +19,8 @@ class Solver:
     def dpll(self,cnf,assignment):
         # print(str(cnf))
         cnf, assignment = self.preProcess(cnf,assignment)
-        # print(str(cnf))
+        
+        # print(assignment)
         if cnf.isSatisfied():
             return assignment
         
@@ -27,7 +28,8 @@ class Solver:
             return None
         
         var = self.selectVariable(cnf,assignment)
-        # print("var: ", var)
+        if var is None:
+            return assignment
         new_assignment = assignment.copy()
         new_assignment[var] = True
         result = self.dpll(cnf.applyAssignment({var:True}),new_assignment)
