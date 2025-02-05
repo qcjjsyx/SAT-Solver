@@ -9,17 +9,26 @@ from CNF import CNF
 class Solver:
     def __init__(self,cnf):
         self.cnf = cnf
+        self.assignments = dict()
+        for lit in cnf.variables:
+             self.assignments[lit] = None
     
+    
+    def applyAssignment(self,var,value):
+        self.assignments[var] = value
+    
+    def clearAssignment(self,var):
+        self.applyAssignment[var] = None
     
     def solve(self):
         return self.dpll(self.cnf, {})
-    
+        # return self.assignments
     
     
     def dpll(self,cnf,assignment):
         # print(str(cnf))
         cnf, assignment = self.preProcess(cnf,assignment)
-        
+        print(self.assignments)
         # print(assignment)
         if cnf.isSatisfied():
             return assignment
@@ -32,12 +41,16 @@ class Solver:
             return assignment
         new_assignment = assignment.copy()
         new_assignment[var] = True
+        self.applyAssignment(var,True)
         result = self.dpll(cnf.applyAssignment({var:True}),new_assignment)
         if result is not None:
             return result
         
+        self.clearAssignment(var)###要给回溯的信号
+        
         new_assignment = assignment.copy()
         new_assignment[var] = False
+        self.applyAssignment(var,False)
         return self.dpll(cnf.applyAssignment({var: False}), new_assignment)
 
         
@@ -50,6 +63,8 @@ class Solver:
             if(new_cnf==cnf) and (newnew_cnf==new_cnf):
                 return newnew_cnf,newnew_assignment
             cnf, assignment = newnew_cnf, newnew_assignment
+    
+    
     
     
     
@@ -74,6 +89,7 @@ class Solver:
                 
             assignment  = assignment.copy()
             assignment[var] = value
+            self.applyAssignment(var, value)
             cnf = cnf.applyAssignment({var:value})
             
     def pureEliminate(self,cnf,assignment):
@@ -87,6 +103,7 @@ class Solver:
                     continue
             assignment = assignment.copy()
             assignment[var] = value
+            self.applyAssignment(var, value)
             cnf.applyAssignment({var:value})
             pure_symbol = cnf.getPureSymbol()
             
