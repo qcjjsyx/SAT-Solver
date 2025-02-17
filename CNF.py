@@ -1,8 +1,8 @@
 class Clause:
-    def __init__(self,c:list) -> None:
+    def __init__(self,c:list,index) -> None:
         self.lits = c
         self.state = None
-    
+        self.i = index ##表示该语句在整个CNF中的位置
     
     def __repr__(self):
         return f'[Clause {self.lits} ' + f'state={self.state}]'

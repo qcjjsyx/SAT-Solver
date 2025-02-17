@@ -1,4 +1,4 @@
-from CNF import CNF
+from CNF_bak import CNF
 
 # # 创建CNF实例
 # filename = "cnf.txt"

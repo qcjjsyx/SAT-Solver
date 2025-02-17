@@ -2,6 +2,9 @@ from sympy import Symbol
 from sympy.logic.boolalg import Not
 from typing import *
 from copy import deepcopy
+
+from tornado.autoreload import watch
+
 from CNF import Clause, CNF
 
 
@@ -21,6 +24,8 @@ class Node:
     def __hash__(self):
         return hash((self.lit, self.level))
 
+
+
 class DecisionLevel:
     
     def __init__(self,decisionL) -> None:
@@ -29,7 +34,9 @@ class DecisionLevel:
     def __repr__(self) -> str:
           return str(self.nodes)
     
-                  
+
+
+
 class Trail:
     def __init__(self) -> None:
         self.levels = [DecisionLevel(0)]
@@ -43,7 +50,9 @@ class Trail:
     def __repr__(self) -> str:
         return str(self.levels)
     
-    
+
+
+
 class CDCLSolver:
     def __init__(self, clauses):
         # CDCLSolver的构造函数
@@ -51,11 +60,47 @@ class CDCLSolver:
         self.trail = Trail() # 迹
         self.assignments = dict() # 当前赋值
         self.var_assignments = dict()
+        self.watch_list_lit_to_clause = dict()
+        self.watch_list_clause_to_lit = dict()
+        i=0
         for clause in clauses:
-            self.cnf.append(Clause(clause))
+            self.cnf.append(Clause(clause,i))
+            i+=1
             for lit in clause:
-                if lit not in self.assignments :
+                if lit not in self.assignments and -lit not in self.assignments:
                     self.assignments[lit] = None
+#######################################################################################
+    def initWatchList(self):
+        self.watch_list_lit_to_clause.clear()
+        for clause in self.cnf:
+            if len(clause)>=2:
+                lit1 = clause.lits[0]
+                lit2 = clause.lits[-1]
+                if clause not in self.watch_list_lit_to_clause[lit1]:
+                    self.watch_list_lit_to_clause[lit1].append(clause)
+                    self.watch_list_clause_to_lit[clause].append(lit1)
+                if clause not in self.watch_list_lit_to_clause[lit2]:
+                    self.watch_list_lit_to_clause[lit2].append(clause)
+                    self.watch_list_clause_to_lit[clause].append(lit2)
+#######################################################################################
+    # def findWatchLiteral(self,clause,exclude=[]):
+    #     for lit in clause.lits:
+    #         if self.assignments[lit] is None and lit not in exclude:
+    #             return lit
+    #     return None
+#######################################################################################
+    def removeFromWatchList(self,clause,lit):
+        if clause in self.watch_list_lit_to_clause[lit]:
+            self.watch_list_lit_to_clause[lit].remove(clause)
+        if lit in self.watch_list_clause_to_lit[clause]:
+            self.watch_list_clause_to_lit[clause].remove(lit)
+########################################################################################
+
+
+
+
+
+
 
 ########################################################################################
     def getFinalAssign(self):
@@ -71,8 +116,12 @@ class CDCLSolver:
         if lit in self.assignments:
             return self.assignments[lit]
         if -lit in self.assignments:
-            return self.assignments[-lit]
-        return None
+            r = self.assignments[-lit]
+            if r is None:
+                return None
+            else:
+                return not r
+
 #############################################################################################  
     def setValue(self,lit):
         if lit in self.assignments:
@@ -122,6 +171,13 @@ class CDCLSolver:
                 clause.state = False
             else:
                 clause.state = None
+
+    def updateClauseState_new(self):
+        for clause in self.cnf:
+            if len(self.watch_list_clause_to_lit[clause])==2:
+                clause.state = None
+                continue
+
 ################################################################################    
     def litPropagete(self, lit, clause):
         self.setValue(lit)
@@ -194,9 +250,9 @@ class CDCLSolver:
                         k = next(j)
                     except StopIteration:
                         break
-                if k==to_node:
-                    break
-                can_be_UIP[k] = False
+                    if k==to_node:
+                        break
+                    can_be_UIP[k] = False
     
         UIP = None
         for node in reversed(latest_level_nodes):
@@ -211,7 +267,7 @@ class CDCLSolver:
             can_reach_conflict_node.add(front)
             del Q[0]
             rs = front.reason
-            if rs!=None:
+            if rs is not None:
                 for lit in rs.lits:
                     if lit != front.lit and -lit in end_level_lit:
                         node = lit_to_node[-lit]
@@ -231,12 +287,12 @@ class CDCLSolver:
         
             R = set()
         
-            entire_adj_list = dict
+            entire_adj_list = dict()
             for node in V:
                 entire_adj_list[node] = []
             for node in V:
                 rs = node.reason
-                if rs!=None:
+                if rs is not None:
                     for lit in rs.lits:
                         if lit!=node.lit:
                             from_node = lit_to_node[-lit]
@@ -250,7 +306,9 @@ class CDCLSolver:
             new_clause = []
             for node in R:
                 new_clause.append(-node.lit)
-            learned_clause = Clause(new_clause)
+            learned_clause = Clause(new_clause,len(self.cnf))
+            # for lit in new_clause:
+            #     if l
             self.cnf.append(learned_clause)
         
             R_levels = sorted(list(set([node.level for node in R])))
@@ -261,30 +319,33 @@ class CDCLSolver:
             return learned_clause, backtrack_level
         
 ################################################################################################   
-    def backtrack(self,  level: int): # 回溯到第level层
-        while self.trail.levels[-1].dl > level: # 考察在第level层之后的层
+    def backtrack(self,  level: int, learned_clause): # 回溯到第level层
+        lit1 = None
+        while self.trail.levels[-1].level > level: # 考察在第level层之后的层
             for node in self.trail.levels[-1].nodes:
-                self.clear_value(node.literal) # 文字重新退回到未赋值状态
+                lit1 = node.lit
+                self.cleanValue(node.lit) # 文字重新退回到未赋值状态
             self.trail.levels.pop() # 从迹中删除该层
-        self.update_clause_value() # 更新子句的值
+        self.updateClauseState() # 更新子句的值
+        # self.litPropagete(lit1, learned_clause)
 ############################################################################################
     def CDCL(self):
         decision_level = 0
         while True:
             self.unitPropagate()
             conflict_clause = self.detectConflict()
-            if conflict_clause!=None:
+            if conflict_clause is not None:
                 if decision_level == 0:
                     return False
                 else:
                     learned_clause, back_level = self.clauseLearning(conflict_clause)
-                    self.backtrack(back_level)
+                    self.backtrack(back_level,learned_clause)
                     decision_level = back_level
             else:
                 lit = self.selectLit()
                 if lit == None:
-                    self.getFinalAssign()
-                    print(self.var_assignments)
+                    # self.getFinalAssign()
+                    print(self.assignments)
                     return True
                 else:
                     decision_level += 1 # 开始一个新的决策层
@@ -298,9 +359,10 @@ class CDCLSolver:
 
 
 #######################################################################3
-cnf = [[1, 2], [-1, 3], [-2, -3], [4, -5], [-4, 5]]
+cnf = [[1,-2,3], [-1,2], [3,-4,5], [-5,4]]
 
 solver = CDCLSolver(cnf)
+# print(solver.watch_list)
 print(solver.CDCL())
 # print(solver.assignments)
 
@@ -309,3 +371,10 @@ print(solver.CDCL())
 
 # solver.cleanValue(5)
 # print(solver.assignments)
+
+
+# 1 -2 3 0
+# -1 2 0
+# 3 -4 5 0
+# -5 4 0
+##############
