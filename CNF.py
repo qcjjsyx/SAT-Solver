@@ -1,6 +1,9 @@
+
+
 class Clause:
-    def __init__(self,c:list,index) -> None:
+    def __init__(self,c:list,index,) -> None:
         self.lits = c
+
         self.state = None
         self.i = index ##表示该语句在整个CNF中的位置
     
@@ -15,6 +18,8 @@ class Clause:
     def __len__(self):
         return len(self.lits)
 
+    def __hash__(self):
+        return hash(self.i)
 
       
 class CNF:

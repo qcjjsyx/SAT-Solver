@@ -69,6 +69,11 @@ class CDCLSolver:
             for lit in clause:
                 if lit not in self.assignments and -lit not in self.assignments:
                     self.assignments[lit] = None
+
+        self.initWatchList()
+#######################################################################################
+    def slove(self):
+        self.CDCL()
 #######################################################################################
     def initWatchList(self):
         self.watch_list_lit_to_clause.clear()
@@ -76,18 +81,17 @@ class CDCLSolver:
             if len(clause)>=2:
                 lit1 = clause.lits[0]
                 lit2 = clause.lits[-1]
-                if clause not in self.watch_list_lit_to_clause[lit1]:
-                    self.watch_list_lit_to_clause[lit1].append(clause)
-                    self.watch_list_clause_to_lit[clause].append(lit1)
-                if clause not in self.watch_list_lit_to_clause[lit2]:
-                    self.watch_list_lit_to_clause[lit2].append(clause)
-                    self.watch_list_clause_to_lit[clause].append(lit2)
+
+                self.addToWatchList(lit1,clause)
+                self.addToWatchList(lit2,clause)
 #######################################################################################
-    # def findWatchLiteral(self,clause,exclude=[]):
-    #     for lit in clause.lits:
-    #         if self.assignments[lit] is None and lit not in exclude:
-    #             return lit
-    #     return None
+    def addToWatchList(self,clause,lit):
+        if lit not in self.watch_list_lit_to_clause:
+            self.watch_list_lit_to_clause[lit] = []
+            self.watch_list_lit_to_clause[lit].append(clause)
+        if clause not in self.watch_list_clause_to_lit:
+            self.watch_list_clause_to_lit[clause] = []
+            self.watch_list_clause_to_lit[clause].append(clause)
 #######################################################################################
     def removeFromWatchList(self,clause,lit):
         if clause in self.watch_list_lit_to_clause[lit]:
@@ -95,10 +99,32 @@ class CDCLSolver:
         if lit in self.watch_list_clause_to_lit[clause]:
             self.watch_list_clause_to_lit[clause].remove(lit)
 ########################################################################################
+    def updateClauseState_new(self, clause):
+        if len(self.watch_list_clause_to_lit[clause]) == 2:
+            clause.state = None
+        if len(self.watch_list_clause_to_lit[clause]) == 1:
+            clause.state = True  ###实际上应该是implied
+        if len(self.watch_list_clause_to_lit[clause]) == 0:
+            clause.state = False
 
 
+    def updateWatchList(self,lit):##lit为假的时候需要更新
+        if lit in self.watch_list_lit_to_clause:
+            for clause in self.watch_list_lit_to_clause[lit]:
+                self.watch_list_clause_to_lit[clause].remove(lit)
+                new_lit = None
+                for other_lit in clause.lits:
+                    if other_lit==lit:
+                        continue
+                    if self.assignments[other_lit] is None:
+                        new_lit = other_lit
+                        break
 
-
+                if new_lit is not None:
+                    self.watch_list_lit_to_clause[new_lit].append(clause)
+                    self.watch_list_clause_to_lit[clause].append(new_lit)
+                self.updateClauseState_new(clause)
+            self.watch_list_lit_to_clause[lit].clear()
 
 
 
@@ -154,6 +180,13 @@ class CDCLSolver:
             if unassign_num==1 and false_num == len(clause)-1:
                 return unassign_lit, clause
         return None, None
+
+
+    def getUnitClause_new(self):
+        for clause in self.cnf:
+            if len(self.watch_list_clause_to_lit[clause])==1:
+                return self.watch_list_clause_to_lit[clause][0], clause
+        return None, None
 ##########################################################################################
     def updateClauseState(self):
         for clause in self.cnf:
@@ -172,17 +205,17 @@ class CDCLSolver:
             else:
                 clause.state = None
 
-    def updateClauseState_new(self):
-        for clause in self.cnf:
-            if len(self.watch_list_clause_to_lit[clause])==2:
-                clause.state = None
-                continue
 
 ################################################################################    
     def litPropagete(self, lit, clause):
         self.setValue(lit)
         self.updateClauseState()
-        self.trail.addNodeToCurLevel(lit,clause)    
+        self.trail.addNodeToCurLevel(lit,clause)
+
+    def litPropagate_new(self, lit, clause):
+        self.setValue(lit)
+        self.updateWatchList(-lit)
+        self.trail.addNodeToCurLevel(lit,clause)
 ###############################################################################
     def unitPropagate(self):
         lit = None
@@ -190,7 +223,8 @@ class CDCLSolver:
             lit,clause = self.getUnitClause()
             if lit==None:
                 break
-            self.litPropagete(lit,clause)
+            # self.litPropagete(lit,clause)
+            self.litPropagate_new(lit,clause)
 ###################################################################################
     def selectLit(self):
         for lit, value in self.assignments.items():
@@ -344,8 +378,8 @@ class CDCLSolver:
             else:
                 lit = self.selectLit()
                 if lit == None:
-                    # self.getFinalAssign()
-                    print(self.assignments)
+                    self.getFinalAssign()
+                    print(self.var_assignments)
                     return True
                 else:
                     decision_level += 1 # 开始一个新的决策层
